@@ -38,13 +38,6 @@ client = OpenAI(
   api_key=getenv("OPENAI_API_KEY"),
 )
 
-def send_message(message, conversation_history):
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=conversation_history + [{"role": "user", "content": message}]
-    )
-    return response['choices'][0]['message']['content']
-
 gpt_context = """
 You are an assistant to help software security expert to find vulnerabilities in history commits of Github repo. 
 You need to find vulnerbility concerning Out-of-bounds write and try your best to patch the code. The followings 
@@ -230,13 +223,6 @@ line by line to find whether there is possibility of out-of-bounds write under a
 the information in format "TRUE [func_a] [func_b]" in the final line without extra character. Attention: you do not need definitive proof of out-of-bounds write. 
 """
 
-# response = client.chat.completions.create(
-#     model="gpt-4o",
-#     messages=[
-#         {"role": "system", "content": gpt_context},
-#     ]
-# )
-
 def send_message(message):
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -250,13 +236,17 @@ def send_message(message):
 with open("result.txt", "w") as f:
   print("GPT-4o analysis result", file=f)
 
+analysis_result = []
+
 for commit in commits_history:
   commit_index = commit["commit_index"]
+  result = {"commit_index": commit["commit_index"], "commit_diff": commit["commit_diff"], "analysis": ""}
   if commit_index == "Initial Commit":
     break
   commit_diff = commit["commit_diff"]
   gpt_ask_content = gpt_ask_header + "\n\n" + commit_diff
-  with open("result.txt", "a") as f:
-    print(commit_index, file=f)
-    print(send_message(gpt_ask_content), file=f)
-    print("\n", file=f)
+  result["analysis"] = send_message(gpt_ask_content)
+  analysis_result.append(result)
+
+with open("analysis_result.json", "w") as f:
+  print(json.dumps(analysis_result, ensure_ascii=False), file=f)
