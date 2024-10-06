@@ -38,6 +38,13 @@ client = OpenAI(
   api_key=getenv("OPENAI_API_KEY"),
 )
 
+def send_message(message, conversation_history):
+    response = openai.ChatCompletion.create(
+        model="gpt-4o",
+        messages=conversation_history + [{"role": "user", "content": message}]
+    )
+    return response['choices'][0]['message']['content']
+
 gpt_context = """
 You are an assistant to help software security expert to find vulnerabilities in history commits of Github repo. 
 You need to find vulnerbility concerning Out-of-bounds write and try your best to patch the code. The followings 
@@ -189,6 +196,16 @@ Out-of-bounds write
   In the case where the substring is not found in destBuf, strstr() will return NULL, causing the pointer arithmetic to be undefined, potentially setting the value 
   of idx to a negative number. If idx is negative, this will result in a buffer underwrite of destBuf.
 
+  What should you do to check whether a function has out-of-bounds vulnerability?
+  1. You should find the newly added entire functions and only need to analyze these functions, and please ignore other changes.
+  2. Analyse these function separately line by line.
+
+  Some key points for finding vulnerabilities:
+  1. Some safe functions
+    Functions which are similar to strncpy, snprintf and strncat could keep the software safe.
+  2. Buffer with fixed size
+    Buffer with fixed size could keep the software safe.
+
 There may be other types of vulnerabilities here as well in history commits, as follows:
 1. Heap-based Buffer Overflow
   Brief description: A heap overflow condition is a buffer overflow, where the buffer that can be overwritten is allocated in the heap portion of memory, generally 
@@ -203,14 +220,43 @@ There may be other types of vulnerabilities here as well in history commits, as 
   Brief description: The product calls free() twice on the same memory address, potentially leading to modification of unexpected memory locations.
 5. Out of Bounds Read
   Brief description: The product reads data past the end, or before the beginning, of the intended buffer.
-
+You DO NOT need to care these five typical vulnerabilities. You ONLY need to search for Out-of-bounds write vulnerabilit.
 """
 
-response = client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[
-        {"role": "system", "content": gpt_context},
-    ]
-)
+gpt_ask_header = """
+Forget the previous commit analysis result. You only need to analyze the newly added entire functions, and please ignore other changes (DO NOT input information of these changes). 
+You should firstly find newly added entire functions, and ignore remainder. If there is not newly added function, just return "FALSE". You should analyze each new function separately 
+line by line to find whether there is possibility of out-of-bounds write under assumption that a certain user is extremely malicious. If there is a suspicious function, please return 
+the information in format "TRUE [func_a] [func_b]" in the final line without extra character. Attention: you do not need definitive proof of out-of-bounds write. 
+"""
 
-print(response.choices[0].message.content)
+# response = client.chat.completions.create(
+#     model="gpt-4o",
+#     messages=[
+#         {"role": "system", "content": gpt_context},
+#     ]
+# )
+
+def send_message(message):
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+          {"role": "system", "content": gpt_context},
+          {"role": "user", "content": message}
+        ]
+    )
+    return response.choices[0].message.content
+
+with open("result.txt", "w") as f:
+  print("GPT-4o analysis result", file=f)
+
+for commit in commits_history:
+  commit_index = commit["commit_index"]
+  if commit_index == "Initial Commit":
+    break
+  commit_diff = commit["commit_diff"]
+  gpt_ask_content = gpt_ask_header + "\n\n" + commit_diff
+  with open("result.txt", "a") as f:
+    print(commit_index, file=f)
+    print(send_message(gpt_ask_content), file=f)
+    print("\n", file=f)
