@@ -1,7 +1,7 @@
-
 POST / HTTP/1.1
 Host: localhost
-From: a..@a..@....a@a.a@...@example.com.a@invalid\
-      ..@repeated..@characters@intensify@pressure@intentionally\
-      ..@breaking@out_of_bounds@exploit.payload
+From: .........................a........................@............................................................b...a..........................................
+Content-Type: application/x-www-form-urlencoded
 Content-Length: 0
+
+

@@ -2,6 +2,7 @@
 
 from openai import OpenAI
 from os import getenv
+import subprocess
 import argparse
 import json
 import re
@@ -46,15 +47,34 @@ gpt_ask_tail = """
 You should read the analysis and suspicious function in commit details line by line first, 
 and according them to create practical payloads. You should provide proof of vulnerability 
 in HTTP request format, with host: localhost. And you should ensure that payload is long enough 
-(more then 200 bytes) to Out-of-Bounds Write but no longer than 300 bytes. You should tell me your 
-chains of thought. 
+(more then 200 characters) to trigger Out-of-Bounds Write but no longer than 500 characters.
 """
 
-message = gpt_ask_header + gpt_analysis + commit_detail + gpt_ask_tail
-response = send_message(message)
-pattern = r'```(.*?)```'
-matches = re.findall(pattern, response, re.DOTALL)
-with open("vuln_cpv1.bin", "w") as f:
-    print(matches[0], file=f)
-print(matches[0])
-os.system("cd ./nginx-cp && ./run.sh run_pov ../vuln_cpv1.bin pov_harness && cd ..")
+flag = True
+num = 1
+while flag:
+    print(f"Try {num}")
+    message = gpt_ask_header + gpt_analysis + commit_detail + gpt_ask_tail
+    response = send_message(message)
+    # print(response)
+    pattern = r'```http\n(.*?)```'
+    matches = re.findall(pattern, response, re.DOTALL)
+    if not matches:
+        pattern = r'```plaintext\n(.*?)```'
+        matches = re.findall(pattern, response, re.DOTALL)
+    if not matches:
+        pattern = r'```(.*?)```'
+        matches = re.findall(pattern, response, re.DOTALL)
+    with open("vuln_cpv1.bin", "w") as f:
+        print(matches[0], file=f)
+    pattern = r'libfuzzer exit=1'
+    command = "cd ./nginx-cp && ./run.sh run_pov ../vuln_cpv1.bin pov_harness && cd .."
+    result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    matches = re.findall(pattern, result.stdout, re.DOTALL)
+    if matches:
+        flag = False
+        print("Payload generates successfully in vuln_cpv1.bin!")
+    else:
+        print("Failed...")
+        num += 1
+#os.system("cd ./nginx-cp && ./run.sh run_pov ../vuln_cpv1.bin pov_harness && cd ..")

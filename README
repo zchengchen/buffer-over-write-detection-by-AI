@@ -1,4 +1,4 @@
-The following is input by injecting Blobs above
+The following is input by injecting Blob (vuln_cpv1.bin) above
 INFO: Running with entropic power schedule (0xFF, 100).
 INFO: Seed: 3434121613
 INFO: Loaded 1 modules   (80 inline 8-bit counters): 80 [0x56211ac5ad78, 0x56211ac5adc8), 
