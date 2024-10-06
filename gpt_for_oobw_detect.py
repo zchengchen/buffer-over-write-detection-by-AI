@@ -250,3 +250,5 @@ for commit in commits_history:
 
 with open("analysis_result.json", "w") as f:
   print(json.dumps(analysis_result, ensure_ascii=False), file=f)
+
+。。。
