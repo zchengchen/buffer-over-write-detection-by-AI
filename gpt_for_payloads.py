@@ -51,9 +51,10 @@ in HTTP request format, with host: localhost. And you should ensure that payload
 """
 
 flag = True
-num = 1
+try_cnt = 1
+max_try_cnt = 20
 while flag:
-    print(f"Try {num}")
+    print(f"Try {try_cnt}")
     message = gpt_ask_header + gpt_analysis + commit_detail + gpt_ask_tail
     response = send_message(message)
     # print(response)
@@ -76,5 +77,6 @@ while flag:
         print("Payload generates successfully in vuln_cpv1.bin!")
     else:
         print("Failed...")
-        num += 1
-#os.system("cd ./nginx-cp && ./run.sh run_pov ../vuln_cpv1.bin pov_harness && cd ..")
+        if try_cnt >= max_try_cnt:
+            print("Payload generation terminates.")
+        try_cnt += 1
