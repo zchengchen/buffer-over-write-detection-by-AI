@@ -15,5 +15,5 @@ You could run this command to detect the potential Out-of-Bounds Write, and resu
 python3 gpt_for_oobw_detect.py
 ```
 
-## Result for finding CPV1 (Heap-based Buffer Overflow induced by Commit 165)
+## Result for finding CPV1 (induced by Commit 165)
 
