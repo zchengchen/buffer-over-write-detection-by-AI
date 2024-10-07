@@ -1,0 +1,72 @@
+--- ./nginx-source/src/http/ngx_http_request.c	2024-10-06 18:56:46.395435500 -0500
++++ new_file.c	2024-10-06 23:59:02.216801637 -0500
+@@ -4038,7 +4038,8 @@
+ }
+ 
+ 
+-static ngx_int_t
++static 
++ngx_int_t
+ ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
+ {
+     u_char  *f, *u, ch;
+@@ -4057,8 +4058,8 @@
+     state = sw_begin;
+ 
+     if (alloc) {
+-        u = ngx_palloc(pool, from->len);
+-
++        // Ensure memory allocation is properly sized
++        u = ngx_palloc(pool, from->len + 1); // Allocate an extra byte for null termination
+         if (u == NULL) {
+             return NGX_ERROR;
+         }
+@@ -4087,6 +4088,10 @@
+                 *u++ = ch;
+                 state = sw_username;
+             } else if (ch == '.') {
++                if (u - from->data < 2) {
++                    // Prevent buffer underflow when decrementing `u`
++                    return NGX_DECLINED;
++                }
+                 state = sw_username_dot;
+                 u -= 2;
+                 for ( ;; ) {
+@@ -4096,6 +4101,9 @@
+                     }
+ 
+                     u--;
++                    if (u < from->data) { // Ensure u does not go out of bounds
++                        return NGX_DECLINED;
++                    }
+                 }
+             } else {
+                 return NGX_DECLINED;
+@@ -4130,16 +4138,20 @@
+             break;
+ 
+         default:
++            return NGX_DECLINED;
++        }
+ 
++        // Prevent buffer overflow by checking if we're exceeding allocated memory
++        if (alloc && (size_t)(u - from->data) >= from->len) {
+             return NGX_DECLINED;
+         }
+     }
+ 
+     if (state == sw_tld) {
+-        *u = '\0';
++        *u = '\0';  // Safely null-terminate the string
+ 
+         if (alloc) {
+-            from->data = u;
++            from->data = u - from->len;  // Ensure `from->data` points to the start of the allocated buffer
+         }
+         return NGX_OK;
+     } else {
+@@ -4236,3 +4248,4 @@
+ 
+     return NGX_DONE;
+ }
++

@@ -1,4 +1,4 @@
-# python3 gpt_for_payloads.py --commit_index 165 --func ngx_http_validate_from
+# python3 gpt_for_payload.py --commit_index 165 --func ngx_http_validate_from
 
 from openai import OpenAI
 from os import getenv
@@ -52,7 +52,7 @@ in HTTP request format, with host: localhost. And you should ensure that payload
 
 flag = True
 try_cnt = 1
-max_try_cnt = 20
+max_try_cnt = 10
 while flag:
     print(f"Try {try_cnt}")
     message = gpt_ask_header + gpt_analysis + commit_detail + gpt_ask_tail
