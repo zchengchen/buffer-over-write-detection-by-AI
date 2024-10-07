@@ -4042,7 +4042,7 @@ static
 ngx_int_t
 ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
 {
-    u_char  *f, *u, ch;
+    u_char  *f, *u, *buffer_end, ch;
     size_t   i;
 
     enum {
@@ -4058,8 +4058,7 @@ ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
     state = sw_begin;
 
     if (alloc) {
-        // Ensure memory allocation is properly sized
-        u = ngx_palloc(pool, from->len + 1); // Allocate an extra byte for null termination
+        u = ngx_palloc(pool, from->len);
         if (u == NULL) {
             return NGX_ERROR;
         }
@@ -4067,11 +4066,12 @@ ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
         u = from->data;
     }
 
+    buffer_end = u + from->len;
+
     for (i = 0; i < from->len; i++) {
         ch = f[i];
 
         switch (state) {
-
         case sw_begin:
             if (isalnum(ch) || ch == '-' || ch == '_') {
                 state = sw_username;
@@ -4080,30 +4080,26 @@ ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
             } else {
                 return NGX_DECLINED;
             }
-            *u++ = ch;
+            if (u < buffer_end) *u++ = ch;
             break;
 
         case sw_username_dot:
             if (isalnum(ch) || ch == '-' || ch == '_') {
-                *u++ = ch;
+                if (u < buffer_end) *u++ = ch;
                 state = sw_username;
             } else if (ch == '.') {
-                if (u - from->data < 2) {
-                    // Prevent buffer underflow when decrementing `u`
+                if (u >= from->data + 2) {
+                    state = sw_username_dot;
+                    u -= 2;
+                    for ( ;; ) {
+                        if (*u == '.') {
+                            u++;
+                            break;
+                        }
+                        u--;
+                    }
+                } else {
                     return NGX_DECLINED;
-                }
-                state = sw_username_dot;
-                u -= 2;
-                for ( ;; ) {
-                    if (*u == '.') {
-                        u++;
-                        break;
-                    }
-
-                    u--;
-                    if (u < from->data) { // Ensure u does not go out of bounds
-                        return NGX_DECLINED;
-                    }
                 }
             } else {
                 return NGX_DECLINED;
@@ -4118,7 +4114,7 @@ ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
             } else if (!isalnum(ch) && ch != '-' && ch != '_' && ch != '+') {
                 return NGX_DECLINED;
             }
-            *u++ = ch;
+            if (u < buffer_end) *u++ = ch;
             break;
 
         case sw_domain:
@@ -4127,31 +4123,28 @@ ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
             } else if (!isalnum(ch) && ch != '-') {
                 return NGX_DECLINED;
             }
-            *u++ = ch;
+            if (u < buffer_end) *u++ = ch;
             break;
 
         case sw_tld:
             if (!isalpha(ch)) {
                 return NGX_DECLINED;
             }
-            *u++ = ch;
+            if (u < buffer_end) *u++ = ch;
             break;
 
         default:
             return NGX_DECLINED;
         }
-
-        // Prevent buffer overflow by checking if we're exceeding allocated memory
-        if (alloc && (size_t)(u - from->data) >= from->len) {
-            return NGX_DECLINED;
-        }
     }
 
     if (state == sw_tld) {
-        *u = '\0';  // Safely null-terminate the string
+        if (u < buffer_end) {
+            *u = '\0';
+        }
 
         if (alloc) {
-            from->data = u - from->len;  // Ensure `from->data` points to the start of the allocated buffer
+            from->data = u;
         }
         return NGX_OK;
     } else {
@@ -4248,4 +4241,3 @@ ngx_http_trace_handler(ngx_http_request_t *r)
 
     return NGX_DONE;
 }
-
