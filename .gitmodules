@@ -1,8 +1,0 @@
-[submodule "nginx-cp"]
-    path = nginx-cp
-    url = https://github.com/aixcc-public/challenge-004-nginx-cp.git
-
-[submodule "nginx-source"]
-    path = nginx-source
-    url = https://github.com/aixcc-public/challenge-004-nginx-source.git
-
