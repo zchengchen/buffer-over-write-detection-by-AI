@@ -1,0 +1,7 @@
+You should build CP before running py scripts.
+```
+cd nginx-cp
+make cpsrc-prepare
+make docker-pull
+./run build
+```
