@@ -38,5 +38,4 @@ for each_commit in vuln_commits:
         if match[0:3] == "ngx":
             vuln_func["vuln_func"].append(match)
     vuln_funcs.append(vuln_func)
-print(vuln_funcs)
-            
+
