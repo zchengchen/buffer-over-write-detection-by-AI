@@ -32,7 +32,8 @@ args = parser.parse_args()
 
 repo_owner = "aixcc-public"
 repo_name = "challenge-004-nginx-source"
-path = search_function_in_github(repo_owner, repo_name, "ngx_http_validate_from")
+# path = search_function_in_github(repo_owner, repo_name, "ngx_http_validate_from")
+path = "src/http/ngx_http_request.c"
 original_path = os.path.join("nginx-source", path)
 patch_path = os.path.join("nginx-cp/src/nginx", path)
 latest_impl = extract_c_function(original_path, args.func)
@@ -69,7 +70,7 @@ flag = True
 max_try_cnt = 10
 try_cnt = 1
 while flag:
-    print(f"Try {try_cnt}")
+    print(f"Try to generate patch #{try_cnt}")
     message = gpt_ask_header + analysis + payload + impl_code + gpt_ask_tail
     response = send_message(message)
     patched_func = get_function_impl_from_response(response, args.func)
@@ -84,14 +85,14 @@ while flag:
         new_file = before_match + "\n" + patched_func + after_match
         with open(patch_path, 'w') as file:
             file.write(new_file)
-        # with open("new_file.c", "w") as file:
-        #     file.write(new_file)
+        with open("after_patch.c", "w") as file:
+            file.write(new_file)
         command_result = build()
         command = "cd ./nginx-cp && ./run.sh run_pov ../vuln_cpv1.bin pov_harness && cd .."
         result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         pattern = r'libfuzzer exit=0'
         matches = re.findall(pattern, result.stdout, re.DOTALL)
-    if matches:
+    if len(matches) != 0:
         flag = False
         print("Patch the vuln successfully!")
         print("Run functionality tests...")
@@ -99,7 +100,7 @@ while flag:
         result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         pattern = r'fail'
         matches = re.findall(pattern, result.stdout, re.DOTALL)
-        if matches:
+        if len(matches) != 0:
             command = f"diff -u -w {original_path} {patch_path} > bad_patch.diff"
             subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             print("Some of functionality tests failed, bad patch. Continue to try.")
@@ -111,5 +112,6 @@ while flag:
         print("Failed...")
         if try_cnt >= max_try_cnt:
             print("Patch generation terminates.")
+            flag = False
         try_cnt += 1
-    remove_patch_and_build(path, args.func)
+        remove_patch_and_build(path, args.func)

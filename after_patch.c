@@ -4042,7 +4042,7 @@ static
 ngx_int_t
 ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
 {
-    u_char  *f, *u, *buffer_end, ch;
+    u_char  *f, *u, *u_start, ch;
     size_t   i;
 
     enum {
@@ -4054,53 +4054,40 @@ ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
     } state;
 
     f = from->data;
-
     state = sw_begin;
 
     if (alloc) {
-        u = ngx_palloc(pool, from->len);
+        u = ngx_palloc(pool, from->len + 1);   // +1 for the terminating null byte
         if (u == NULL) {
             return NGX_ERROR;
         }
+        u_start = u;
     } else {
         u = from->data;
+        u_start = u;
     }
-
-    buffer_end = u + from->len;
 
     for (i = 0; i < from->len; i++) {
         ch = f[i];
-
+        
         switch (state) {
         case sw_begin:
             if (isalnum(ch) || ch == '-' || ch == '_') {
                 state = sw_username;
             } else if (ch == '.') {
-                state = sw_username_dot;
+                return NGX_DECLINED; // Dots can't appear at the beginning
             } else {
                 return NGX_DECLINED;
             }
-            if (u < buffer_end) *u++ = ch;
+            *u++ = ch;
             break;
 
         case sw_username_dot:
             if (isalnum(ch) || ch == '-' || ch == '_') {
-                if (u < buffer_end) *u++ = ch;
+                *u++ = ch;
                 state = sw_username;
             } else if (ch == '.') {
-                if (u >= from->data + 2) {
-                    state = sw_username_dot;
-                    u -= 2;
-                    for ( ;; ) {
-                        if (*u == '.') {
-                            u++;
-                            break;
-                        }
-                        u--;
-                    }
-                } else {
-                    return NGX_DECLINED;
-                }
+                return NGX_DECLINED; // Consecutive dots not allowed
             } else {
                 return NGX_DECLINED;
             }
@@ -4114,7 +4101,7 @@ ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
             } else if (!isalnum(ch) && ch != '-' && ch != '_' && ch != '+') {
                 return NGX_DECLINED;
             }
-            if (u < buffer_end) *u++ = ch;
+            *u++ = ch;
             break;
 
         case sw_domain:
@@ -4123,14 +4110,14 @@ ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
             } else if (!isalnum(ch) && ch != '-') {
                 return NGX_DECLINED;
             }
-            if (u < buffer_end) *u++ = ch;
+            *u++ = ch;
             break;
 
         case sw_tld:
             if (!isalpha(ch)) {
                 return NGX_DECLINED;
             }
-            if (u < buffer_end) *u++ = ch;
+            *u++ = ch;
             break;
 
         default:
@@ -4139,12 +4126,10 @@ ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
     }
 
     if (state == sw_tld) {
-        if (u < buffer_end) {
-            *u = '\0';
-        }
+        *u = '\0';
 
         if (alloc) {
-            from->data = u;
+            from->data = u_start;
         }
         return NGX_OK;
     } else {

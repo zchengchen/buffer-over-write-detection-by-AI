@@ -54,7 +54,7 @@ flag = True
 try_cnt = 1
 max_try_cnt = 10
 while flag:
-    print(f"Try {try_cnt}")
+    print(f"Try to generate payload #{try_cnt}")
     message = gpt_ask_header + gpt_analysis + commit_detail + gpt_ask_tail
     response = send_message(message)
     # print(response)
@@ -79,4 +79,5 @@ while flag:
         print("Failed...")
         if try_cnt >= max_try_cnt:
             print("Payload generation terminates.")
+            flag = False
         try_cnt += 1

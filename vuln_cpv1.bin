@@ -1,6 +1,8 @@
-GET / HTTP/1.1
-Host: localhost
-From: a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a..a@example.com
-Connection: close
 
+POST / HTTP/1.1
+Host: localhost
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 240
+
+From=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.combbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbccccccccccc@domain-domain-domain-domain-domain-domain-domain-domain-domain-domain-domain-domain-domain-domain-domain-tld
 

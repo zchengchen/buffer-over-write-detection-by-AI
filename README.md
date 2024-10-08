@@ -23,7 +23,7 @@ To genreate patch for a specific function , you could run following command. The
 ```Bash
 python3 gpt_for_patch.py --commit_index 165 --func ngx_http_validate_from
 ```
-### Run it for all commits and all suspicious functions.
+### Run it for all commits and all suspicious functions
 
 
 ## Result for finding CPV1 (induced by Commit 165)
