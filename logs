@@ -1,0 +1,6 @@
+--- Commit 12 ---
+[+] Payload Generation
+[*] Generating payload #1 for ngx_http_auth_basic_user...
+[+] Payload is generated successfully and stored in payloads/bic_12.bin.
+[+] Patch Generation
+[*] Generating patch #1 for ngx_http_auth_basic_user...

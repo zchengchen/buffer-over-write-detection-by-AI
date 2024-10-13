@@ -124,10 +124,10 @@ with open("analysis_result_v1.json", "r") as f:
 for commit in commit_analysis:
     text = commit["analysis"]
     commit_index = commit["commit_index"]
+    if commit_index != "Commit 12":
+        continue
     index = re.search(r'\b\d{1,3}\b', commit_index).group()
     true_vulnerable_func = ""
-    if commit_index != "Commit 102":
-        continue
     pattern = r'TRUE( ngx_[a-zA-Z0-9_]+)+'
     match = re.search(r'TRUE( ngx_[a-zA-Z0-9_]+)+', text)
     vuln_funcs = re.findall(r'ngx_[a-zA-Z0-9_]+', match.group(0))
@@ -168,18 +168,19 @@ for commit in commit_analysis:
         max_try = 10
         try_cnt = 0
         while try_cnt < max_try:
-            print(f"Generating payload #{try_cnt + 1} for {func}...")
+            print(f"[*] Generating payload #{try_cnt + 1} for {func}...")
             response = send_message(payload_prompt)
             pattern = r'```http\n(.*?)```'
             matches = re.findall(pattern, response, re.DOTALL)
-            if not matches:
+            if len(matches) == 0:
                 pattern = r'```plaintext\n(.*?)```'
                 matches = re.findall(pattern, response, re.DOTALL)
-            if not matches:
+            if len(matches) == 0:
                 pattern = r'```(.*?)```'
                 matches = re.findall(pattern, response, re.DOTALL)
-            with open(f"payloads/bic_{index}.bin", "r") as f:
-                matches[0] = f.read()
+            if len(matches) == 0:
+                print("[-] Failed to extract payload from response.")
+                continue
             with open("tmp_payload.bin", "w") as f:
                 print(matches[0], file=f)
             test_harnesses = ["pov_harness", "smtp_harness", "mail_request_harness"]
@@ -189,7 +190,7 @@ for commit in commit_analysis:
                 result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 matches = re.findall(pattern, result.stdout, re.DOTALL)
                 if matches:
-                    print(f"Payload is generated successfully and stored in payloads/bic_{index}.bin.")
+                    print(f"[+] Payload is generated successfully and stored in payloads/bic_{index}.bin.")
                     shutil.move("tmp_payload.bin", f"payloads/bic_{index}.bin")
                     payload_flag = True
                     true_vulnerable_func = func
@@ -202,6 +203,8 @@ for commit in commit_analysis:
         if payload_flag:
             # Generate patch
             patch_flag = False
+            func_pos = vuln_funcs.index(true_vulnerable_func)
+            vuln_funcs[0], vuln_funcs[func_pos] = vuln_funcs[func_pos], vuln_funcs[0]
             for func in vuln_funcs:
                 if patch_flag:
                     break
@@ -223,15 +226,14 @@ for commit in commit_analysis:
                 with open(f"payloads/bic_{index}.bin", "r") as f:
                     patch_prompt += f.read()
                 patch_prompt += "\n"
-                true_vulnerable_func = "ngx_mail_smtp_noop"
                 patch_prompt += f"""
-                    Please patch these functions {true_vulnerable_func} and at the same time keep this function work normally. In your code, do
+                    Please patch these functions {func} and at the same time keep this function work normally. In your code, do
                     not introduce any new header file. All the revisions should be included in the function body. Do not change 
                     the function's parameters and types of return value and keep the change inside the function body.
                     """
                 print("[+] Patch Generation")
                 while try_cnt < max_try:
-                    print(f"Generating patch #{try_cnt + 1} for {func}...")
+                    print(f"[*] Generating patch #{try_cnt + 1} for {func}...")
                     response = send_message(patch_prompt)
                     pattern = r'```c\n(.*?)```'
                     matches = re.findall(pattern, response, re.DOTALL)
@@ -241,6 +243,9 @@ for commit in commit_analysis:
                     if len(matches) == 0:
                         pattern = r'```plaintext\n(.*?)```'
                         matches = re.findall(pattern, response, re.DOTALL)
+                    if len(matches) == 0:
+                        print("[-] Failed to extract function implementation from response.")
+                        continue
                     patched_func = matches[0]
                     with open(original_path, 'r') as file:
                         file_content = file.read()
@@ -260,18 +265,18 @@ for commit in commit_analysis:
                         matches = re.findall(pattern, result.stdout, re.DOTALL)
                         flag = (flag and len(matches))
                     if flag:
-                        print(f"Patch is generated successfully and sotred in patches/bic_{index}.diff")
+                        print(f"[+] Patch is generated successfully and sotred in patches/bic_{index}.diff")
                         command = f"diff -u -w {original_path} {patch_path} > patches/bic_{index}.diff"
                         subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                         patch_flag = True
                         break
                     else:
-                        print("Failed... Unpatch and rebuild...")
-                        remove_patch_and_build(func_path, func)
+                        print("[-] Failed... Unpatch and rebuild...")
+                        remove_patch_and_build()
                         try_cnt += 1
             break
         else:
-            print(f"Payload generation for {func} terminates.")
+            print(f"[!] Payload generation for {func} terminates.")
 
         
                 

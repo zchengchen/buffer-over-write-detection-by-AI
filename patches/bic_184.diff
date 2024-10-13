@@ -1,6 +1,6 @@
 --- nginx-source/src/http/ngx_http_core_module.c	2024-10-06 18:56:46.395435500 -0500
-+++ nginx-cp/src/nginx/src/http/ngx_http_core_module.c	2024-10-13 02:07:10.319514197 -0500
-@@ -5260,15 +5260,24 @@
++++ nginx-cp/src/nginx/src/http/ngx_http_core_module.c	2024-10-13 14:45:50.479007411 -0500
+@@ -5260,15 +5260,27 @@
  }
  
  
@@ -9,45 +9,48 @@
  ngx_http_set_browser_cookie(ngx_http_request_t *r)
  {
      ngx_table_elt_t           *browser_cookie;
-+    size_t cookie_length = 0;
++    size_t                    cookie_len = 0;
++    size_t                    max_len;
  
      if (!r->headers_in.safari && !r->headers_in.msie && !r->headers_in.chrome) {
          return NGX_OK;
      }
  
 +    if (r->headers_in.cookie) {
-+        cookie_length = r->headers_in.cookie->value.len;  // Get the length of the existing cookie
++        cookie_len = r->headers_in.cookie->value.len;
 +    }
 +
-+    // Calculate required buffer size securely
-+    size_t buffer_size = NGX_OFF_T_LEN + NGX_TIME_T_LEN + (cookie_length > 0 ? 3 + cookie_length : 2); // Add 3 for the ": and 2 more hex places if there is cookie
++    // Calculate the maximum needed length considering the formatted string.
++    // 16 is used to accommodate the conversion of time (8 chars) and length (8 chars - a good upper bound for typical file size)
++    // Add 3 for delimiters  and null-terminator
++    max_len = 16 + cookie_len + 3;
 +
      browser_cookie = ngx_list_push(&r->headers_out.headers);
      if (browser_cookie == NULL) {
          return NGX_ERROR;
-@@ -5278,7 +5287,7 @@
+@@ -5278,7 +5290,7 @@
      browser_cookie->next = NULL;
      ngx_str_set(&browser_cookie->key, "Browser-Cookie");
  
 -    browser_cookie->value.data = ngx_pnalloc(r->pool, NGX_OFF_T_LEN + NGX_TIME_T_LEN + 3);
-+    browser_cookie->value.data = ngx_pnalloc(r->pool, buffer_size);
++    browser_cookie->value.data = ngx_pnalloc(r->pool, max_len);
      if (browser_cookie->value.data == NULL) {
          browser_cookie->hash = 0;
          return NGX_ERROR;
-@@ -5286,23 +5295,23 @@
+@@ -5286,23 +5298,23 @@
  
      // Safari does not fully comply with RFC 2109 regarding cookies.
      if ( r->headers_in.safari && r->headers_in.cookie) {
 -        browser_cookie->value.len = ngx_sprintf(browser_cookie->value.data, "\"%xT-%xO\":%s",
-+        browser_cookie->value.len = ngx_snprintf(browser_cookie->value.data, buffer_size, "\"%xT-%xO\":%V",
++        browser_cookie->value.len = ngx_snprintf(browser_cookie->value.data, max_len, "\"%xT-%xO\":%V",
                                    r->headers_out.last_modified_time,
                                    r->headers_out.content_length_n,
 -                                  r->headers_in.cookie->value.data)
-+                                                 &r->headers_in.cookie->value)
++                                  &r->headers_in.cookie->value)
                                  - browser_cookie->value.data; 
      } else {
 -        browser_cookie->value.len = ngx_sprintf(browser_cookie->value.data, "\"%xT-%xO\"",
-+        browser_cookie->value.len = ngx_snprintf(browser_cookie->value.data, buffer_size, "\"%xT-%xO\"",
++        browser_cookie->value.len = ngx_snprintf(browser_cookie->value.data, max_len, "\"%xT-%xO\"",
                                    r->headers_out.last_modified_time,
                                    r->headers_out.content_length_n)
                                  - browser_cookie->value.data; 

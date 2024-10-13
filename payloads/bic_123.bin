@@ -1,6 +1,5 @@
 GET /host_specs HTTP/1.1
 Host: localhost
-User-Agent: AAAAAA... [Very large string of A's to overflow]
-Connection: close
-
+User-Agent: Nginx-Testing-Agent
+Accept: */*
 

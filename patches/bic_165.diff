@@ -1,5 +1,5 @@
 --- nginx-source/src/http/ngx_http_request.c	2024-10-06 18:56:46.395435500 -0500
-+++ nginx-cp/src/nginx/src/http/ngx_http_request.c	2024-10-13 01:48:54.510332661 -0500
++++ nginx-cp/src/nginx/src/http/ngx_http_request.c	2024-10-13 15:16:47.136927384 -0500
 @@ -4038,10 +4038,11 @@
  }
  
@@ -9,38 +9,49 @@
  ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
  {
 -    u_char  *f, *u, ch;
-+    u_char  *f, *u, *u_start, ch;
++    u_char *f, *u, *start_u, ch;
      size_t   i;
  
      enum {
-@@ -4057,7 +4058,7 @@
+@@ -4053,33 +4054,32 @@
+     } state;
+ 
+     f = from->data;
+-
      state = sw_begin;
  
      if (alloc) {
 -        u = ngx_palloc(pool, from->len);
-+        u = ngx_palloc(pool, from->len + 1);  // Allocate one more byte for null-terminator.
- 
+-
++        u = ngx_palloc(pool, from->len + 1); // Allocate extra space for null-termination
          if (u == NULL) {
              return NGX_ERROR;
-@@ -4066,6 +4067,8 @@
+         }
++        start_u = u; // Keep track of the start of allocated memory
+     } else {
          u = from->data;
++        start_u = u; // Point to the initial position of data
      }
  
-+    u_start = u;  // Keep track of the start for proper null-termination and memory management.
-+
      for (i = 0; i < from->len; i++) {
          ch = f[i];
  
-@@ -4079,7 +4082,7 @@
+         switch (state) {
+-
+         case sw_begin:
+             if (isalnum(ch) || ch == '-' || ch == '_') {
++                *u++ = ch;
+                 state = sw_username;
+             } else if (ch == '.') {
+                 state = sw_username_dot;
              } else {
                  return NGX_DECLINED;
              }
 -            *u++ = ch;
-+            *u++ = ch;  // Safe to write as we have allocated enough memory.
              break;
  
          case sw_username_dot:
-@@ -4087,16 +4090,15 @@
+@@ -4087,16 +4087,8 @@
                  *u++ = ch;
                  state = sw_username;
              } else if (ch == '.') {
@@ -50,20 +61,46 @@
 -                    if (*u == '.') {
 -                        u++;
 -                        break;
-+                // Modify logic to ensure we don't underflow the pointer.
-+                if (u > u_start) {
-+                    u--;  // Step back to the start of the series of dots.
-                     }
+-                    }
 -
-+                // Scan backward until the first non-dot character.
-+                while (u > u_start && *u == '.') {
-                     u--;
-                 }
-+                state = sw_username_dot;
+-                    u--;
+-                }
++                while (u > start_u && *(u-1) == '.') u--; // Backtrack over multiple dots
++                 // Ensure we don't write out of bounds
              } else {
                  return NGX_DECLINED;
              }
-@@ -4130,16 +4132,15 @@
+@@ -4104,22 +4096,27 @@
+ 
+         case sw_username:
+             if (ch == '@') {
++                *u++ = ch;
+                 state = sw_domain;
+             } else if (ch == '.') {
++                *u++ = ch;
+                 state = sw_username_dot;
+             } else if (!isalnum(ch) && ch != '-' && ch != '_' && ch != '+') {
+                 return NGX_DECLINED;
+-            }
++            } else {
+             *u++ = ch;
++            }
+             break;
+ 
+         case sw_domain:
+             if (ch == '.') {
++                *u++ = ch;
+                 state = sw_tld;
+             } else if (!isalnum(ch) && ch != '-') {
+                 return NGX_DECLINED;
+-            }
++            } else {
+             *u++ = ch;
++            }
+             break;
+ 
+         case sw_tld:
+@@ -4130,23 +4127,25 @@
              break;
  
          default:
@@ -72,17 +109,19 @@
          }
      }
  
++    // Additional checks for buffer correctness
      if (state == sw_tld) {
 -        *u = '\0';
-+        *u = '\0';  // Ensure proper null-termination.
++        *u = '\0'; // Null-terminate the string
  
          if (alloc) {
 -            from->data = u;
-+            from->data = u_start;
++            from->data = start_u; // Ensure from->data points to the allocated memory
          }
          return NGX_OK;
++
      } else {
-@@ -4147,6 +4148,7 @@
+         return NGX_DECLINED;
      }
  }
  
