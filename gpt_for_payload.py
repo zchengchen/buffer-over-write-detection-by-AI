@@ -46,8 +46,7 @@ with open("analysis_result.json", "r") as file:
 gpt_ask_tail = """
 You should read the analysis and suspicious function in commit details line by line first, 
 and according them to create practical payloads. You should provide proof of vulnerability 
-in HTTP request format, with host: localhost. And you should ensure that payload is long enough 
-(more then 200 characters) to trigger Out-of-Bounds Write but no longer than 500 characters.
+in HTTP request format, with host: localhost.
 """
 
 flag = True

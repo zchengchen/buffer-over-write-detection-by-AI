@@ -3,7 +3,7 @@ from os import getenv
 
 github_token = getenv("GITHUB_TOKEN")
 def search_function_in_github(repo_owner, repo_name, function_name, github_token=github_token):
-    url = f"https://api.github.com/search/code?q={function_name}+repo:{repo_owner}/{repo_name}"
+    url = f"https://api.github.com/search/code?q={function_name}+repo:{repo_owner}/{repo_name}+filename:.c"
 
     headers = {}
     if github_token:
