@@ -1,0 +1,92 @@
+--- nginx-source/src/http/ngx_http_request.c	2024-10-06 18:56:46.395435500 -0500
++++ nginx-cp/src/nginx/src/http/ngx_http_request.c	2024-10-13 01:48:54.510332661 -0500
+@@ -4038,10 +4038,11 @@
+ }
+ 
+ 
++
+ static ngx_int_t
+ ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
+ {
+-    u_char  *f, *u, ch;
++    u_char  *f, *u, *u_start, ch;
+     size_t   i;
+ 
+     enum {
+@@ -4057,7 +4058,7 @@
+     state = sw_begin;
+ 
+     if (alloc) {
+-        u = ngx_palloc(pool, from->len);
++        u = ngx_palloc(pool, from->len + 1);  // Allocate one more byte for null-terminator.
+ 
+         if (u == NULL) {
+             return NGX_ERROR;
+@@ -4066,6 +4067,8 @@
+         u = from->data;
+     }
+ 
++    u_start = u;  // Keep track of the start for proper null-termination and memory management.
++
+     for (i = 0; i < from->len; i++) {
+         ch = f[i];
+ 
+@@ -4079,7 +4082,7 @@
+             } else {
+                 return NGX_DECLINED;
+             }
+-            *u++ = ch;
++            *u++ = ch;  // Safe to write as we have allocated enough memory.
+             break;
+ 
+         case sw_username_dot:
+@@ -4087,16 +4090,15 @@
+                 *u++ = ch;
+                 state = sw_username;
+             } else if (ch == '.') {
+-                state = sw_username_dot;
+-                u -= 2;
+-                for ( ;; ) {
+-                    if (*u == '.') {
+-                        u++;
+-                        break;
++                // Modify logic to ensure we don't underflow the pointer.
++                if (u > u_start) {
++                    u--;  // Step back to the start of the series of dots.
+                     }
+-
++                // Scan backward until the first non-dot character.
++                while (u > u_start && *u == '.') {
+                     u--;
+                 }
++                state = sw_username_dot;
+             } else {
+                 return NGX_DECLINED;
+             }
+@@ -4130,16 +4132,15 @@
+             break;
+ 
+         default:
+-
+             return NGX_DECLINED;
+         }
+     }
+ 
+     if (state == sw_tld) {
+-        *u = '\0';
++        *u = '\0';  // Ensure proper null-termination.
+ 
+         if (alloc) {
+-            from->data = u;
++            from->data = u_start;
+         }
+         return NGX_OK;
+     } else {
+@@ -4147,6 +4148,7 @@
+     }
+ }
+ 
++
+ static ngx_int_t
+ ngx_http_process_from(ngx_http_request_t *r, ngx_table_elt_t *h,
+     ngx_uint_t offset)

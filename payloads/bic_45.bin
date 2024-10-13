@@ -1,3 +1,5 @@
-GET /lastConnection?counter=10000 HTTP/1.1
+GET /lastConnection HTTP/1.1
 Host: localhost
+X-Request-Counter: 9999
+
 

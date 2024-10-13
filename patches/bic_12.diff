@@ -1,0 +1,35 @@
+--- nginx-source/src/http/ngx_http_core_module.c	2024-10-06 18:56:46.395435500 -0500
++++ nginx-cp/src/nginx/src/http/ngx_http_core_module.c	2024-10-13 02:01:40.759781289 -0500
+@@ -1946,6 +1946,7 @@
+ }
+ 
+ 
++
+ ngx_int_t
+ ngx_http_auth_basic_user(ngx_http_request_t *r)
+ {
+@@ -1985,7 +1986,15 @@
+         return NGX_DECLINED;
+     }
+ 
+-    auth.len = NGX_HTTP_AUTH_MAX;
++    // Revert this line to allocate buffer based on expected decoded size
++    auth.len = ngx_base64_decoded_length(encoded.len);
++
++    // Alternative safeguard: Ensure the length doesn't exceed the predefined max to prevent overflow
++    if (auth.len > NGX_HTTP_AUTH_MAX) {
++        r->headers_in.user.data = (u_char *) "";
++        return NGX_DECLINED;
++    }
++
+     auth.data = ngx_pnalloc(r->pool, auth.len + 1);
+     if (auth.data == NULL) {
+         return NGX_ERROR;
+@@ -2018,6 +2027,7 @@
+ }
+ 
+ 
++
+ #if (NGX_HTTP_GZIP)
+ 
+ ngx_int_t

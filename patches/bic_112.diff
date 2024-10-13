@@ -1,0 +1,33 @@
+--- nginx-source/src/http/ngx_http_request.c	2024-10-06 18:56:46.395435500 -0500
++++ nginx-cp/src/nginx/src/http/ngx_http_request.c	2024-10-13 02:17:12.539099020 -0500
+@@ -4003,6 +4003,7 @@
+ }
+ 
+ 
++
+ static ngx_int_t
+ ngx_http_process_prefer(ngx_http_request_t *r, ngx_table_elt_t *h,
+     ngx_uint_t offset)
+@@ -4011,11 +4012,13 @@
+ 
+     if (r->headers_in.prefer) {
+         ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+-                      "client sent duplicate host header: \"%V: %V\", "
++                      "client sent duplicate prefer header: \"%V: %V\", "
+                       "previous value: \"%V: %V\"",
+                       &h->key, &h->value, &r->headers_in.prefer->key,
+                       &r->headers_in.prefer->value);
++        
+         ngx_free(r->headers_in.prefer);
++        r->headers_in.prefer = NULL; // Set to NULL to prevent double-free
+         return NGX_OK;
+     }
+ 
+@@ -4038,6 +4041,7 @@
+ }
+ 
+ 
++
+ static ngx_int_t
+ ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
+ {

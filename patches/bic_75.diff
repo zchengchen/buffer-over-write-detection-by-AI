@@ -1,0 +1,102 @@
+--- nginx-source/src/http/modules/ngx_http_range_filter_module.c	2024-10-06 18:56:46.385435500 -0500
++++ nginx-cp/src/nginx/src/http/modules/ngx_http_range_filter_module.c	2024-10-13 02:32:39.638540646 -0500
+@@ -267,6 +267,7 @@
+ }
+ 
+ 
++
+ static ngx_int_t
+ ngx_http_range_parse(ngx_http_request_t *r, ngx_http_range_filter_ctx_t *ctx,
+     ngx_uint_t ranges)
+@@ -279,6 +280,10 @@
+     ngx_uint_t                    rev;
+     ngx_http_range_filter_ctx_t  *mctx;
+ 
++    if (!r || !ctx || !r->headers_in.range) {
++        return NGX_HTTP_RANGE_NOT_SATISFIABLE; // Ensure inputs are not null
++    }
++
+     if (r != r->main) {
+         mctx = ngx_http_get_module_ctx(r->main,
+                                        ngx_http_range_body_filter_module);
+@@ -294,7 +299,7 @@
+         return NGX_ERROR;
+     }
+ 
+-    p = r->headers_in.range->value.data + 6;
++    p = r->headers_in.range->value.data + 6;  // Assuming "bytes=" is 6 characters
+     size = 0;
+     rev = 0;
+     content_length = r->headers_out.content_length_n;
+@@ -302,18 +307,18 @@
+     cutoff = NGX_MAX_OFF_T_VALUE / 10;
+     cutlim = NGX_MAX_OFF_T_VALUE % 10;
+ 
+-    for ( ;; ) {
++    while (*p != '\0') {
+         start = 0;
+         end = 0;
+         suffix = 0;
+ 
+         while (*p == ' ') { p++; }
+ 
+-        if (*p != '-') {
+-            if (*p < '0' || *p > '9') {
+-                return NGX_HTTP_RANGE_NOT_SATISFIABLE;
++        if (*p != '-' && (*p < '0' || *p > '9')) {
++            return NGX_HTTP_RANGE_NOT_SATISFIABLE; // Ensure range starts with "-" or a digit
+             }
+ 
++        if (*p != '-') {
+             while (*p >= '0' && *p <= '9') {
+                 if (start >= cutoff && (start > cutoff || *p - '0' > cutlim)) {
+                     return NGX_HTTP_RANGE_NOT_SATISFIABLE;
+@@ -341,13 +346,14 @@
+                 p++;
+                 while (*p == ' ') { p++; }
+ 
+-                if (*p++ != ',') {
++                if (*p != ',' && *p != '\0') {  // Ensure proper termination
+                     return NGX_HTTP_RANGE_NOT_SATISFIABLE;
+                 }
+ 
+-                while (*p == ' ') { p++; }
+-
+                 rev = 1;
++                if (*p == ',') {
++                    p++;
++                }
+                 continue;
+             } else {
+                 suffix = 1;
+@@ -378,8 +384,7 @@
+         }
+ 
+         if (end >= content_length) {
+-            end = content_length;
+-
++            end = content_length - 1;
+         } else {
+             end++;
+         }
+@@ -411,9 +416,11 @@
+             return NGX_DECLINED;
+         }
+ 
+-        if (*p++ != ',') {
++        if (*p != ',' && *p != '\0') {
+             break;
+         }
++
++        p++; // Advance to the next range if available
+     }
+ 
+     if (ctx->ranges.nelts == 0) {
+@@ -428,6 +435,7 @@
+ }
+ 
+ 
++
+ static ngx_int_t
+ ngx_http_range_singlepart_header(ngx_http_request_t *r,
+     ngx_http_range_filter_ctx_t *ctx)

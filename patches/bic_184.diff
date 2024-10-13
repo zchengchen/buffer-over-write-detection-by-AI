@@ -1,0 +1,64 @@
+--- nginx-source/src/http/ngx_http_core_module.c	2024-10-06 18:56:46.395435500 -0500
++++ nginx-cp/src/nginx/src/http/ngx_http_core_module.c	2024-10-13 02:07:10.319514197 -0500
+@@ -5260,15 +5260,24 @@
+ }
+ 
+ 
++
+ ngx_int_t
+ ngx_http_set_browser_cookie(ngx_http_request_t *r)
+ {
+     ngx_table_elt_t           *browser_cookie;
++    size_t cookie_length = 0;
+ 
+     if (!r->headers_in.safari && !r->headers_in.msie && !r->headers_in.chrome) {
+         return NGX_OK;
+     }
+ 
++    if (r->headers_in.cookie) {
++        cookie_length = r->headers_in.cookie->value.len;  // Get the length of the existing cookie
++    }
++
++    // Calculate required buffer size securely
++    size_t buffer_size = NGX_OFF_T_LEN + NGX_TIME_T_LEN + (cookie_length > 0 ? 3 + cookie_length : 2); // Add 3 for the ": and 2 more hex places if there is cookie
++
+     browser_cookie = ngx_list_push(&r->headers_out.headers);
+     if (browser_cookie == NULL) {
+         return NGX_ERROR;
+@@ -5278,7 +5287,7 @@
+     browser_cookie->next = NULL;
+     ngx_str_set(&browser_cookie->key, "Browser-Cookie");
+ 
+-    browser_cookie->value.data = ngx_pnalloc(r->pool, NGX_OFF_T_LEN + NGX_TIME_T_LEN + 3);
++    browser_cookie->value.data = ngx_pnalloc(r->pool, buffer_size);
+     if (browser_cookie->value.data == NULL) {
+         browser_cookie->hash = 0;
+         return NGX_ERROR;
+@@ -5286,23 +5295,23 @@
+ 
+     // Safari does not fully comply with RFC 2109 regarding cookies.
+     if ( r->headers_in.safari && r->headers_in.cookie) {
+-        browser_cookie->value.len = ngx_sprintf(browser_cookie->value.data, "\"%xT-%xO\":%s",
++        browser_cookie->value.len = ngx_snprintf(browser_cookie->value.data, buffer_size, "\"%xT-%xO\":%V",
+                                   r->headers_out.last_modified_time,
+                                   r->headers_out.content_length_n,
+-                                  r->headers_in.cookie->value.data)
++                                                 &r->headers_in.cookie->value)
+                                 - browser_cookie->value.data; 
+     } else {
+-        browser_cookie->value.len = ngx_sprintf(browser_cookie->value.data, "\"%xT-%xO\"",
++        browser_cookie->value.len = ngx_snprintf(browser_cookie->value.data, buffer_size, "\"%xT-%xO\"",
+                                   r->headers_out.last_modified_time,
+                                   r->headers_out.content_length_n)
+                                 - browser_cookie->value.data; 
+     }
+     
+-
+     return NGX_OK;
+ }
+ 
+ 
++
+ static char *
+ ngx_http_core_pool_size(ngx_conf_t *cf, void *post, void *data)
+ {

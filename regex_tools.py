@@ -28,7 +28,7 @@ def extract_c_function(file_path, function_name):
     return function_code
 
 def get_function_impl_from_response(response, function_name):
-    pattern = rf"\b[\w\s\*]+\s+\**{function_name}\s*\([^)]*\)\s*\{{"
+    pattern = rf"```c\b[\w\s\*]+\s+\**{function_name}\s*\([^)]*\)\s*\{{```"
     content = response
     match = re.search(pattern, content)
     if not match:
