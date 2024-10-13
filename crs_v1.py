@@ -121,14 +121,15 @@ with open("analysis_result_v1.json", "r") as f:
 for commit in commit_analysis:
     text = commit["analysis"]
     commit_index = commit["commit_index"]
+    if commit_index != "Commit 184":
+        continue
     pattern = r'TRUE( ngx_[a-zA-Z0-9_]+)+'
     match = re.search(r'TRUE( ngx_[a-zA-Z0-9_]+)+', text)
     vuln_funcs = re.findall(r'ngx_[a-zA-Z0-9_]+', match.group(0))
+    payload_flag = False
+    print(vuln_funcs)
+    print(f"---{commit_index}---")
     for func in vuln_funcs:
-        payload_flag = False
-        if func != "ngx_http_validate_from":
-            continue
-        # print(func)
         while True:
             func_path = search_function_in_github(repo_owner, repo_name, func)
             # print(func_path)
@@ -138,7 +139,7 @@ for commit in commit_analysis:
                 break
         original_path = os.path.join("nginx-source", func_path)
         func_latest_impl = extract_c_function(original_path, func)
-        # print(func_latest_impl)
+        print(func_latest_impl)
         payload_prompt = f"""
             We find that this commit definitively contains some vulnerabilities and function "{func}" 
             is highly suspicious. Please tell me how to obtain a proof of vulnerability. Vulnerabilities will be 
@@ -164,7 +165,7 @@ for commit in commit_analysis:
         max_try = 10
         try_cnt = 0
         while try_cnt < max_try:
-            print(f"Generate payload #{try_cnt + 1}...")
+            print(f"Generate payload #{try_cnt + 1} for {func}...")
             response = send_message(payload_prompt)
             pattern = r'```http\n(.*?)```'
             matches = re.findall(pattern, response, re.DOTALL)
@@ -176,18 +177,23 @@ for commit in commit_analysis:
                 matches = re.findall(pattern, response, re.DOTALL)
             with open("tmp_payload.bin", "w") as f:
                 print(matches[0], file=f)
-            pattern = r'libfuzzer exit=1'
-            command = "cd ./nginx-cp && ./run.sh run_pov ../tmp_payload.bin pov_harness && cd .."
-            result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            matches = re.findall(pattern, result.stdout, re.DOTALL)
-            if matches:
-                index = re.search(r'\b\d{1,3}\b', commit_index).group()
-                print(f"Payload generates successfully and is stored in payloads/bic_{index}.bin.")
-                shutil.move("tmp_payload.bin", f"payloads/bic_{index}.bin")
-                payload_flag = True
-                break
-            else:
+            test_harnesses = ["pov_harness", "smtp_harness", "mail_request_harness"]
+            for test_harness in test_harnesses:
+                pattern = r'libfuzzer exit=1'
+                command = f"cd ./nginx-cp && ./run.sh run_pov ../tmp_payload.bin {test_harness} && cd .."
+                result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                matches = re.findall(pattern, result.stdout, re.DOTALL)
+                if matches:
+                    index = re.search(r'\b\d{1,3}\b', commit_index).group()
+                    print(f"Payload generates successfully and is stored in payloads/bic_{index}.bin.")
+                    shutil.move("tmp_payload.bin", f"payloads/bic_{index}.bin")
+                    payload_flag = True
+                    break
+            if not payload_flag:
                 print("Failed...")
+                try_cnt += 1
+            else:
+                break
         if payload_flag:
             break
         
