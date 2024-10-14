@@ -9,6 +9,9 @@ make docker-pull
 ```
 If build fails, please check this repo for more information: https://github.com/aixcc-public/challenge-004-nginx-cp.
 
+## CRS v1
+The implementatino of CRS v1 is shown in `crs_v1.py`, and stdout of running `python3 crs_v1.py` is shown in `logs`. The payloads and patches for bug-induced commit (BIC) is shown in folder `payloads` amd `patches` respectively.
+
 ## How to use it
 ### Run it for specific commit and function
 You could run this command to detect the potential Out-of-Bounds Write, and result would be stored in `analysis_result.json`.

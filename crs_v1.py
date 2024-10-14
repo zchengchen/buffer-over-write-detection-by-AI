@@ -124,8 +124,6 @@ with open("analysis_result_v1.json", "r") as f:
 for commit in commit_analysis:
     text = commit["analysis"]
     commit_index = commit["commit_index"]
-    if commit_index != "Commit 12":
-        continue
     index = re.search(r'\b\d{1,3}\b', commit_index).group()
     true_vulnerable_func = ""
     pattern = r'TRUE( ngx_[a-zA-Z0-9_]+)+'
@@ -134,6 +132,7 @@ for commit in commit_analysis:
     payload_flag = False
     print(f"--- {commit_index} ---")
     print("[+] Payload Generation")
+    remove_patch_and_build()
     for func in vuln_funcs:
         patch_flag = False
         while True:
@@ -233,6 +232,7 @@ for commit in commit_analysis:
                     """
                 print("[+] Patch Generation")
                 while try_cnt < max_try:
+                    remove_patch_and_build()
                     print(f"[*] Generating patch #{try_cnt + 1} for {func}...")
                     response = send_message(patch_prompt)
                     pattern = r'```c\n(.*?)```'
@@ -271,8 +271,7 @@ for commit in commit_analysis:
                         patch_flag = True
                         break
                     else:
-                        print("[-] Failed... Unpatch and rebuild...")
-                        remove_patch_and_build()
+                        print("[-] Failed...")
                         try_cnt += 1
             break
         else:

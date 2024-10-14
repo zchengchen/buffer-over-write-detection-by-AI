@@ -1,6 +1,6 @@
 --- nginx-source/src/http/ngx_http_request.c	2024-10-06 18:56:46.395435500 -0500
-+++ nginx-cp/src/nginx/src/http/ngx_http_request.c	2024-10-13 15:16:47.136927384 -0500
-@@ -4038,10 +4038,11 @@
++++ nginx-cp/src/nginx/src/http/ngx_http_request.c	2024-10-13 19:10:57.811375175 -0500
+@@ -4038,11 +4038,13 @@
  }
  
  
@@ -8,42 +8,26 @@
  static ngx_int_t
  ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
  {
--    u_char  *f, *u, ch;
-+    u_char *f, *u, *start_u, ch;
+     u_char  *f, *u, ch;
      size_t   i;
++    size_t   u_len = 0;  // track length for buffer overflow prevention
  
      enum {
-@@ -4053,33 +4054,32 @@
-     } state;
+         sw_begin = 0,
+@@ -4054,10 +4056,11 @@
  
      f = from->data;
--
+ 
++    // Resetting the state machine to the initial state
      state = sw_begin;
  
      if (alloc) {
 -        u = ngx_palloc(pool, from->len);
--
-+        u = ngx_palloc(pool, from->len + 1); // Allocate extra space for null-termination
++        u = ngx_palloc(pool, from->len + 1);  // Allocate an additional byte for the null terminator
+ 
          if (u == NULL) {
              return NGX_ERROR;
-         }
-+        start_u = u; // Keep track of the start of allocated memory
-     } else {
-         u = from->data;
-+        start_u = u; // Point to the initial position of data
-     }
- 
-     for (i = 0; i < from->len; i++) {
-         ch = f[i];
- 
-         switch (state) {
--
-         case sw_begin:
-             if (isalnum(ch) || ch == '-' || ch == '_') {
-+                *u++ = ch;
-                 state = sw_username;
-             } else if (ch == '.') {
-                 state = sw_username_dot;
+@@ -4079,23 +4082,29 @@
              } else {
                  return NGX_DECLINED;
              }
@@ -51,77 +35,73 @@
              break;
  
          case sw_username_dot:
-@@ -4087,16 +4087,8 @@
-                 *u++ = ch;
+             if (isalnum(ch) || ch == '-' || ch == '_') {
+-                *u++ = ch;
                  state = sw_username;
              } else if (ch == '.') {
--                state = sw_username_dot;
--                u -= 2;
--                for ( ;; ) {
--                    if (*u == '.') {
--                        u++;
--                        break;
--                    }
--
--                    u--;
--                }
-+                while (u > start_u && *(u-1) == '.') u--; // Backtrack over multiple dots
-+                 // Ensure we don't write out of bounds
+                 state = sw_username_dot;
++
++                if (u_len < 2) {
++                  return NGX_DECLINED;  // Ensure there's enough space to safely step back
++                }
++
+                 u -= 2;
++                u_len -= 2;
+                 for ( ;; ) {
+                     if (*u == '.') {
+                         u++;
++                        u_len++;
+                         break;
+                     }
+ 
+                     u--;
++                    u_len--;
+                 }
              } else {
                  return NGX_DECLINED;
-             }
-@@ -4104,22 +4096,27 @@
- 
-         case sw_username:
-             if (ch == '@') {
-+                *u++ = ch;
-                 state = sw_domain;
-             } else if (ch == '.') {
-+                *u++ = ch;
-                 state = sw_username_dot;
+@@ -4110,7 +4119,6 @@
              } else if (!isalnum(ch) && ch != '-' && ch != '_' && ch != '+') {
                  return NGX_DECLINED;
--            }
-+            } else {
-             *u++ = ch;
-+            }
+             }
+-            *u++ = ch;
              break;
  
          case sw_domain:
-             if (ch == '.') {
-+                *u++ = ch;
-                 state = sw_tld;
+@@ -4119,24 +4127,30 @@
              } else if (!isalnum(ch) && ch != '-') {
                  return NGX_DECLINED;
--            }
-+            } else {
-             *u++ = ch;
-+            }
+             }
+-            *u++ = ch;
              break;
  
          case sw_tld:
-@@ -4130,23 +4127,25 @@
+             if (!isalpha(ch)) {
+                 return NGX_DECLINED;
+             }
+-            *u++ = ch;
              break;
  
          default:
--
++            return NGX_DECLINED;
++        }
+ 
++        // Update buffer if a successful transition is made
++        *u++ = ch;
++        u_len++;
++
++        // Check to ensure we do not exceed the buffer length
++        if (u_len >= from->len + 1) {
              return NGX_DECLINED;
          }
      }
  
-+    // Additional checks for buffer correctness
      if (state == sw_tld) {
 -        *u = '\0';
-+        *u = '\0'; // Null-terminate the string
++        *u = '\0'; // Properly null-terminate the validated string
  
          if (alloc) {
--            from->data = u;
-+            from->data = start_u; // Ensure from->data points to the allocated memory
-         }
-         return NGX_OK;
-+
-     } else {
-         return NGX_DECLINED;
+             from->data = u;
+@@ -4147,6 +4161,7 @@
      }
  }
  

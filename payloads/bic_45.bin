@@ -1,5 +1,4 @@
-GET /lastConnection HTTP/1.1
+GET /lastConnection?counter=999999 HTTP/1.1
 Host: localhost
-X-Request-Counter: 9999
-
+User-Agent: vulnerability-tester
 

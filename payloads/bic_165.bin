@@ -1,5 +1,5 @@
 GET / HTTP/1.1
 Host: localhost
-From: user....@domain.com.-.-.-.-.-domain.-.-.-.-
+From: .......@example.com
 
 
