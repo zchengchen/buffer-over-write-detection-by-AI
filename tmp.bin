@@ -1,5 +1,0 @@
-
-GET / HTTP/1.1
-Host: localhost
-Authorization: Basic dXNlcjpwd2QxMjM0NTZ3aXRoZXh0cmFjdGVkY3JlZGVudGlhbHM=
-
