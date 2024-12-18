@@ -1,2 +1,5 @@
 .env
 load_venv.sh
+__pycache__/
+tools/__pycache__
+prompts/__pycache__
