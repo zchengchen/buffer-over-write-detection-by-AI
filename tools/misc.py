@@ -5,4 +5,4 @@ def get_commit_diff(commit_index):
         for d in data:
             if d["commit_index"] == f"Commit {commit_index}": 
                 return d["commit_diff"]
-    return ""
+    return None
