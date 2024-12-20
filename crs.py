@@ -25,7 +25,4 @@ mail_harness_impl_path = "nginx-cp/src/harnesses/mail_request_harness.cc"
 smtp_harness_impl_path = "nginx-cp/src/harnesses/smtp_harness.cc"
 
 prompt_generator = PromptGenerator()
-print(prompt_generator.commit_analysis_template("1").format(commit_diff="1",
-        vul_name="2",
-        san_name="3",
-        info_from_harness="4"))
+print(prompt_generator.commit_analysis_template("1 prev_analysis").format(commit_diff="1"))
