@@ -1,4 +1,5 @@
 import re
+
 def extract_c_function(file_path, function_name):
     pattern = rf"\b[\w\s\*]+\s+\**{function_name}\s*\([^)]*\)\s*\{{"
     with open(file_path, 'r') as f:
